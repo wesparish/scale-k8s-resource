@@ -52,8 +52,6 @@ fi
 [ -z $MIN_SCALE ] && MIN_SCALE=0
 [ -z $SCALING_FACTOR ] && SCALING_FACTOR=1
 
-SCALE="${SCALE} ${SCALING_FACTOR}"
-
 KUBECTL=${KUBECTL:-/opt/rules/kubectl/kubectl}
 K8S_RESOURCE_TYPE=${RESOURCE%/*}
 
@@ -64,6 +62,17 @@ CURRENT_SCALE=$($KUBECTL \
                 --namespace=${NAMESPACE} \
                 get ${K8S_RESOURCE_TYPE} \
                 -o go-template='{{(index .items 0).spec.replicas}}')
+
+# Check if scaling factor will cross min/max
+if [ "$SCALE" = "+" ] && [ $CURRENT_SCALE -lt $MAX_SCALE ] && [ $(expr $CURRENT_SCALE + ${SCALING_FACTOR}) -gt $MAX_SCALE ]; then
+  SCALING_FACTOR=$(expr $MAX_SCALE - $CURRENT_SCALE)
+fi
+
+if [ "$SCALE" = "-" ] && [ $CURRENT_SCALE -gt $MIN_SCALE ] && [ $(expr $CURRENT_SCALE - ${SCALING_FACTOR}) -lt $MIN_SCALE ]; then
+  SCALING_FACTOR=$(expr $CURRENT_SCALE - $MIN_SCALE)
+fi
+
+SCALE="${SCALE} ${SCALING_FACTOR}"
 
 if [ $(expr $CURRENT_SCALE ${SCALE}) -le $MAX_SCALE ] && [ $(expr $CURRENT_SCALE ${SCALE}) -ge $MIN_SCALE ]; then
   echo "Scaling $SCALE, current scale: $CURRENT_SCALE, min: $MIN_SCALE, max: $MAX_SCALE"
