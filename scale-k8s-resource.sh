@@ -1,22 +1,22 @@
 #!/bin/sh
 
-usage() { echo "Usage: $0 [-k /path/to/kubectl] [-c kubeconfig.yml] <[-ud]> -r <k8s deployment resource> -n <k8s namespace> [-a <max scale>] [-i <min scale>]" 1>&2; exit 1; }
+usage() { echo "Usage: $0 [-k /path/to/kubectl] [-c kubeconfig.yml] <[-ud]> -r <k8s deployment resource> -n <k8s namespace> [-a <max scale>] [-i <min scale>] [-f <scaling factor>]" 1>&2; exit 1; }
 
-while getopts ":k:c:udr:n:a:i:" o; do
+while getopts ":k:c:udr:n:a:i:f:" o; do
     case "${o}" in
         k)
             KUBECTL=${OPTARG}
-            [[ -x $KUBECTL ]] || (echo "$KUBECTL not executable!" && usage)
+            [ -f $KUBECTL ] || (echo "$KUBECTL not executable!" && usage)
             ;;
         c)
             KUBECONFIG=${OPTARG}
-            [[ -f $KUBECTL ]] || (echo "$KUBECONFIG file not found!" && usage)
+            [ -f $KUBECONFIG ] || (echo "$KUBECONFIG file not found!" && usage)
             ;;
         u)
-            SCALE="+ 1"
+            SCALE="+"
             ;;
         d)
-            SCALE="- 1"
+            SCALE="-"
             ;;
         r)
             RESOURCE=${OPTARG}
@@ -29,6 +29,9 @@ while getopts ":k:c:udr:n:a:i:" o; do
             ;;
         i)
             MIN_SCALE=${OPTARG}
+            ;;
+        f)
+            SCALING_FACTOR=${OPTARG}
             ;;
         *)
             echo "Invalid parameter"
@@ -47,6 +50,9 @@ fi
 
 [ -z $MAX_SCALE ] && MAX_SCALE=99
 [ -z $MIN_SCALE ] && MIN_SCALE=0
+[ -z $SCALING_FACTOR ] && SCALING_FACTOR=1
+
+SCALE="${SCALE} ${SCALING_FACTOR}"
 
 KUBECTL=${KUBECTL:-/opt/rules/kubectl/kubectl}
 K8S_RESOURCE_TYPE=${RESOURCE%/*}
