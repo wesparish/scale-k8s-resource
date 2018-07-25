@@ -87,7 +87,7 @@ fi
 
 SCALE="${SCALE} ${SCALING_FACTOR}"
 
-[ -n $DRY_RUN ] && \
+[ "$DRY_RUN" = "true" ] && \
   echo "Scaling $SCALE, current scale: $CURRENT_SCALE, min: $MIN_SCALE, max: $MAX_SCALE" && \
   echo "*** Not performing any actions due to dry run ***" && \
   exit 0
