@@ -1,8 +1,8 @@
 #!/bin/sh
 
-usage() { echo "Usage: $0 [-k /path/to/kubectl] [-c kubeconfig.yml] <[-ud]> -r <k8s deployment resource> -n <k8s namespace> [-a <max scale>] [-i <min scale>] [-f <scaling factor>]" 1>&2; exit 1; }
+usage() { echo "Usage: $0 [-k /path/to/kubectl] [-c kubeconfig.yml] -n <k8s namespace> -r <k8s deployment resource> -a <max scale> ('d' to autodetect max from k8s)] [-i <min scale>] [-f <scaling factor>] [-y (dry-run)] [-l <node selector, e.g. location=weshouse>] <[-ud]>" 1>&2; exit 1; }
 
-while getopts ":k:c:udr:n:a:i:f:" o; do
+while getopts ":k:c:udr:n:a:i:f:yl:" o; do
     case "${o}" in
         k)
             KUBECTL=${OPTARG}
@@ -32,6 +32,12 @@ while getopts ":k:c:udr:n:a:i:f:" o; do
             ;;
         f)
             SCALING_FACTOR=${OPTARG}
+            ;;
+        y)
+            DRY_RUN=true
+            ;;
+        l)
+            NODE_SELECTOR="-l ${OPTARG}"
             ;;
         *)
             echo "Invalid parameter"
@@ -63,6 +69,13 @@ CURRENT_SCALE=$($KUBECTL \
                 get ${K8S_RESOURCE_TYPE} \
                 -o go-template='{{(index .items 0).spec.replicas}}')
 
+# Do we need to autodetect max?
+[ "$MAX_SCALE" = "d" ] && \
+  MAX_SCALE=$(kubectl --namespace ${NAMESPACE} \
+                get nodes \
+                ${NODE_SELECTOR} \
+                | grep Ready | wc -l)
+
 # Check if scaling factor will cross min/max
 if [ "$SCALE" = "+" ] && [ $CURRENT_SCALE -lt $MAX_SCALE ] && [ $(expr $CURRENT_SCALE + ${SCALING_FACTOR}) -gt $MAX_SCALE ]; then
   SCALING_FACTOR=$(expr $MAX_SCALE - $CURRENT_SCALE)
@@ -73,6 +86,11 @@ if [ "$SCALE" = "-" ] && [ $CURRENT_SCALE -gt $MIN_SCALE ] && [ $(expr $CURRENT_
 fi
 
 SCALE="${SCALE} ${SCALING_FACTOR}"
+
+[ -n $DRY_RUN ] && \
+  echo "Scaling $SCALE, current scale: $CURRENT_SCALE, min: $MIN_SCALE, max: $MAX_SCALE" && \
+  echo "*** Not performing any actions due to dry run ***" && \
+  exit 0
 
 if [ $(expr $CURRENT_SCALE ${SCALE}) -le $MAX_SCALE ] && [ $(expr $CURRENT_SCALE ${SCALE}) -ge $MIN_SCALE ]; then
   echo "Scaling $SCALE, current scale: $CURRENT_SCALE, min: $MIN_SCALE, max: $MAX_SCALE"
