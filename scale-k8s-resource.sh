@@ -71,7 +71,7 @@ CURRENT_SCALE=$($KUBECTL \
 
 # Do we need to autodetect max?
 [ "$MAX_SCALE" = "d" ] && \
-  MAX_SCALE=$(kubectl --namespace ${NAMESPACE} \
+  MAX_SCALE=$($KUBECTL --namespace ${NAMESPACE} \
                 get nodes \
                 ${NODE_SELECTOR} \
                 | grep Ready | wc -l)
